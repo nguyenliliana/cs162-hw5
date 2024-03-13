@@ -244,9 +244,15 @@ struct
               let gamma' = add gamma x (Mono t1) in 
               abstract_eval gamma' e2 )
       | Lambda (topt, Scope (x, e')) -> 
-        let f = fresh_var() in
-        let gamma' = add gamma x (Mono f) in 
-        TFun(f, abstract_eval gamma' e')
+        (match topt with 
+        | None -> 
+          let f = fresh_var() in
+          let gamma' = add gamma x (Mono f) in 
+          TFun(f, abstract_eval gamma' e')
+        | Some t -> 
+          let gamma' = add gamma x (Mono t) in 
+          TFun(t, abstract_eval gamma' e')
+        )
       | App (e1, e2) -> 
         let t1 = abstract_eval gamma e1 in 
         let t2 = abstract_eval gamma e2 in 
@@ -272,11 +278,19 @@ struct
         t2 === t3; 
         t2
       | Fix (topt, Scope (f, e1)) -> 
-        let f' = fresh_var () in 
-        let gamma' = add gamma f (Mono f') in 
-        let t = abstract_eval gamma' e1 in 
-        t === f'; 
-        f'
+        (match topt with 
+        | None -> 
+          let f' = fresh_var () in 
+          let gamma' = add gamma f (Mono f') in 
+          let t = abstract_eval gamma' e1 in 
+          t === f'; 
+          f'
+        | Some t' -> 
+          let gamma' = add gamma f (Mono t') in 
+          let t = abstract_eval gamma' e1 in 
+          t === t'; 
+          t'
+        )
       | Annot (e, t_expected) ->
           let t_actual = abstract_eval gamma e in
           (* constrain t_actual to be equal to t_expected *)
