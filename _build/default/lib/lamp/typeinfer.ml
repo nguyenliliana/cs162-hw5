@@ -296,9 +296,18 @@ struct
           (* constrain t_actual to be equal to t_expected *)
           t_actual === t_expected;
           t_expected
-      | Pair (e1, e2) -> part3 ()
-      | Fst e' -> part3 ()
-      | Snd e' -> part3 ()
+      | Pair (e1, e2) -> 
+        let t1 = abstract_eval gamma e1 in 
+        let t2 = abstract_eval gamma e2 in 
+        if equal_ty t1 t2 then t1 else ty_err "ty_err in Pair"
+      | Fst e' -> 
+        match e' with 
+        | Pair (e1, e2) -> abstract_eval gamma e1 
+        | _ -> ty_err "ty_err in Fst"
+      | Snd e' -> 
+        match e' with 
+        | Pair (e1, e2) -> abstract_eval gamma e2
+        | _ -> ty_err "ty_err in Snd"
       | _ -> ty_err ("[abstract_eval] ill-formed: " ^ show_expr e)
     with Type_error msg -> ty_err (msg ^ "\nin expression " ^ show_expr e)
 
