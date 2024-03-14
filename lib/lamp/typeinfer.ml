@@ -73,7 +73,7 @@ let compose (x : string) (t : ty) (s : sigma) : sigma = (x, t) :: s
   *********************************************)
 let rec equal_ty (t1 : ty) (t2 : ty) : bool = 
     match (t1, t2) with
-    | (TVar a, TVar b) -> equal (singleton a) (singleton b)
+    | (TVar a, TVar b) -> print_endline "equal_ty: equal var string"; equal (singleton a) (singleton b)
     | (TInt, TInt) -> true
     | (TBool, TBool) -> true
     | (TFun(a1, a2), TFun(b1, b2)) -> (equal_ty a1 b1) && (equal_ty a2 b2) 
@@ -189,7 +189,12 @@ struct
 
   (** Instantiate a polymorphic type by replacing
   * quantified type variables with fresh type variables *)
-  let instantiate (t : pty) : ty = part4 ()
+  let instantiate (t : pty) : ty = part4()
+    (* match t with 
+    | Mono t' -> t' 
+    | Scheme (x',t') -> Set.fold_right ~f:(fun quant_var acc -> subst quant_var (fresh_var()) acc ) (x' ~init:t' *)
+
+
 
   (*******************************************
    *         Constraint Generation           *
@@ -296,9 +301,15 @@ struct
           (* constrain t_actual to be equal to t_expected *)
           t_actual === t_expected;
           t_expected
-      | Pair (e1, e2) -> part3 ()
-      | Fst e' -> part3 ()
-      | Snd e' -> part3 ()
+      | Pair (e1, e2) -> abstract_eval gamma e1
+      | Fst e' -> 
+        match e' with 
+        | Pair (e1, e2) -> abstract_eval gamma e1 
+        | _ -> ty_err "ty_err in Fst"
+      | Snd e' -> 
+        match e' with 
+        | Pair (e1, e2) -> abstract_eval gamma e2
+        | _ -> ty_err "ty_err in Snd"
       | _ -> ty_err ("[abstract_eval] ill-formed: " ^ show_expr e)
     with Type_error msg -> ty_err (msg ^ "\nin expression " ^ show_expr e)
 
@@ -321,12 +332,13 @@ struct
       else (
         match t1, t2 with 
         | TVar x, _ when not (mem x (Utils.free_vars t2)) -> 
-          (* let cs'' = List.map (fun (t1',t2') -> (Utils.subst x t2 t1',Utils.subst x t2 t2')) cs' in  *)
           let cs'' = List.map ~f:(fun (t1', t2') -> (Utils.subst x t2 t1', Utils.subst x t2 t2')) cs' in
-          compose x t2 (unify ((x, t2)::s)  cs'')
+          (* compose x t2 (unify ((x, t2)::s)  cs'') *)
+          unify ((x, t2)::s)  cs''
         | _, TVar x when not (mem x (Utils.free_vars t1))-> 
           let cs'' = List.map ~f:(fun (t1',t2') -> ((Utils.subst x t1 t1'),(Utils.subst x t1 t2'))) cs' in 
-          compose x t2 (unify ((x, t2)::s)  cs'')
+          (* compose x t2 (unify ((x, t2)::s)  cs'') *)
+          unify ((x, t1)::s)  cs''
         | TFun (a1, a2), TFun (b1, b2) -> 
           unify s ((a1,b1)::(a2,b2)::cs')  (** question: do i add smth to sigma? **)
         | TList t1, TList t2 -> unify s ((t1,t2)::cs')
@@ -337,9 +349,9 @@ struct
   (** Backward substitution phase of the constraint solver *)
   and backward (s : sigma) : sigma = 
     (* let s' = List.map ~f:( fun (v',t') -> List.map ~f:( fun (v,t) -> (v, Utils.subst v' t' t)) s ) s in  *)
-    let s' = List.map ~f:( fun (v,t) -> List.fold_right ~f:( fun (v',t') acc -> (fst acc, Utils.subst v' t' (snd acc))) s ~init:(v,t)) s in
-
     (* let s' = List.fold_right ~f:(fun (v',t') acc -> List.map ~f:( fun (v,t) -> (v, Utils.subst v' t' t) ) acc ) s s in  *)
+    
+    let s' = List.map ~f:( fun (v,t) -> List.fold_right ~f:( fun (v',t') acc -> (fst acc, Utils.subst v' t' (snd acc))) s ~init:(v,t)) s in
     if equal_sigma s s' then s else backward s'
     
 end
